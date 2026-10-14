@@ -16,5 +16,7 @@ jobs:
         run: php tests/connection-test.php
       - name: Test order events
         run: php tests/order-events-test.php
+      - name: Test order payloads
+        run: php tests/payload-builder-test.php
       - name: Check admin script
         run: node --check assets/admin.js

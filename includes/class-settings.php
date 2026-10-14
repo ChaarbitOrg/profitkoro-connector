@@ -29,6 +29,8 @@ class Settings {
 	public const META_LAST_EVENT     = '_cpa_last_event_id';
 	public const META_LAST_STATUS    = '_cpa_last_sync_status';
 	public const META_LAST_SNAPSHOT  = '_cpa_last_snapshot';
+	// Stored on each order line, not the order.
+	public const META_LINE_PRODUCT   = '_cpa_line_product';
 
 	public const META_TRACKING_URL   = '_cpa_shipment_tracking_url';
 

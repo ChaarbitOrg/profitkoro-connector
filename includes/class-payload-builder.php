@@ -71,6 +71,7 @@ class PayloadBuilder {
 			}
 
 			$product     = $item->get_product();
+			$identity    = self::line_product( $item, $product );
 			$quantity    = (int) $item->get_quantity();
 			$subtotal    = (float) $item->get_subtotal();
 			// Use WooCommerce's allocated line totals so order-level discounts are reported consistently.
@@ -82,13 +83,13 @@ class PayloadBuilder {
 			$refunded_amount = abs( (float) $order->get_total_refunded_for_item( $item_id ) );
 
 			$lines[] = [
-				'product_id'    => (string) $item->get_product_id(),
-				'variation_id'  => $item->get_variation_id() ? (string) $item->get_variation_id() : null,
-				'sku'           => $product ? $product->get_sku() : null,
+				'product_id'    => $identity['product_id'],
+				'variation_id'  => $identity['variation_id'],
+				'sku'           => $identity['sku'],
 				'name'          => $item->get_name(),
-				'permalink'     => self::product_permalink( $item ),
+				'permalink'     => $identity['permalink'],
 
-				'requires_shipping' => self::line_requires_shipping( $product ),
+				'requires_shipping' => $identity['requires_shipping'],
 
 				'quantity'      => $quantity,
 				'unit_price'    => self::money( $unit_price ),
@@ -103,6 +104,28 @@ class PayloadBuilder {
 		}
 
 		return $lines;
+	}
+
+	// The product as it was when the line was first reported: deleting the product or changing its
+	// address afterwards must not change which product an existing order line is.
+	private static function line_product( WC_Order_Item_Product $item, $product ): array {
+		$saved = $item->get_meta( Settings::META_LINE_PRODUCT );
+		if ( is_array( $saved ) ) {
+			return $saved;
+		}
+
+		$identity = [
+			'product_id'        => (string) $item->get_product_id(),
+			'variation_id'      => $item->get_variation_id() ? (string) $item->get_variation_id() : null,
+			'sku'               => $product ? $product->get_sku() : null,
+			'permalink'         => self::product_permalink( $item ),
+			'requires_shipping' => self::line_requires_shipping( $product ),
+		];
+		if ( $product instanceof WC_Product ) {
+			$item->update_meta_data( Settings::META_LINE_PRODUCT, $identity );
+			$item->save_meta_data();
+		}
+		return $identity;
 	}
 
 	// Use the parent product URL because variation query strings are removed during platform offer matching.
