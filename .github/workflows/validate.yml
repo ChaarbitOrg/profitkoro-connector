@@ -1,0 +1,20 @@
+name: Validate plugin
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Test connection setup
+        run: php tests/connection-test.php
+      - name: Test order events
+        run: php tests/order-events-test.php
+      - name: Check admin script
+        run: node --check assets/admin.js
