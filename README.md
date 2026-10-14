@@ -28,7 +28,7 @@ If ProfitKoro doesn't accept the details, the plugin tells you straight away and
 
 ## Day to day
 
-Once your store is connected, there's nothing else to do. Orders from affiliate links are sent to ProfitKoro on their own, including status changes and refunds.
+Once your store is connected, there's nothing else to do. Orders from affiliate links are sent to ProfitKoro on their own, including status changes, refunds, item edits and deleted orders.
 
 - **Overview** shows visitors who came from an affiliate link, the orders they placed, and every order update sent to ProfitKoro.
 - **Settings** shows your store key and signing secret. You can also run setup again or reset the plugin here.

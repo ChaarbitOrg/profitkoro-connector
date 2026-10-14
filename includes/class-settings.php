@@ -28,6 +28,7 @@ class Settings {
 	public const META_CLICK_MISSING  = '_cpa_click_missing_reason';
 	public const META_LAST_EVENT     = '_cpa_last_event_id';
 	public const META_LAST_STATUS    = '_cpa_last_sync_status';
+	public const META_LAST_SNAPSHOT  = '_cpa_last_snapshot';
 
 	public const META_TRACKING_URL   = '_cpa_shipment_tracking_url';
 
