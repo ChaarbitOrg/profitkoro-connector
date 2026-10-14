@@ -3,7 +3,7 @@
  * Plugin Name:       ProfitKoro Connector
  * Plugin URI:        https://github.com/ChaarbitOrg/profitkoro-connector
  * Description:       Connects WooCommerce affiliate orders, refunds, and shipment tracking to ProfitKoro.
- * Version:           1.4.0
+ * Version:           1.5.0
  * Requires at least: 6.8
  * Requires PHP:      8.0
  * Requires Plugins:  woocommerce
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const PLUGIN_FILE = __FILE__;
 const PLUGIN_PATH = __DIR__ . '/';
 const DB_VERSION = '3';
