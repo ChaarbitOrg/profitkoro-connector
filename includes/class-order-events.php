@@ -27,6 +27,9 @@ class OrderEvents {
 	/** @var array<int, true> */
 	private static array $deleted = [];
 
+	/** @var array<int, true> */
+	private static array $refunds_removed = [];
+
 	public static function init(): void {
 		// Persist attribution before later checkout handlers process the order.
 		add_action( 'woocommerce_checkout_order_processed', [ __CLASS__, 'on_checkout' ], 5, 1 );
@@ -37,6 +40,8 @@ class OrderEvents {
 		// Partial refunds do not trigger a status change and require their own event.
 		add_action( 'woocommerce_order_refunded', [ __CLASS__, 'on_refunded' ], 10, 2 );
 		add_action( 'woocommerce_refund_deleted', [ __CLASS__, 'on_refund_deleted' ], 10, 2 );
+		// Refunds deleted by code skip the admin hook above, and once deleted no longer know their order.
+		add_filter( 'woocommerce_pre_delete_order_refund', [ __CLASS__, 'on_refund_deleting' ], 10, 2 );
 
 		// Editing items changes no status, so any save of the order is a possible change.
 		add_action( 'woocommerce_update_order', [ __CLASS__, 'on_order_saved' ], 10, 1 );
@@ -91,7 +96,16 @@ class OrderEvents {
 	}
 
 	public static function on_refund_deleted( $refund_id, $order_id ): void {
+		self::$refunds_removed[ (int) $order_id ] = true;
 		self::changed( $order_id, 'order.refunded' );
+	}
+
+	public static function on_refund_deleting( $check, $refund = null ) {
+		if ( null === $check && $refund instanceof \WC_Order_Refund ) {
+			self::$refunds_removed[ (int) $refund->get_parent_id() ] = true;
+			self::changed( $refund->get_parent_id(), 'order.refunded' );
+		}
+		return $check;
 	}
 
 	public static function on_order_saved( $order_id ): void {
@@ -145,6 +159,10 @@ class OrderEvents {
 		self::$changed = [];
 
 		foreach ( $changed as $order_id => $event_type ) {
+			// The order's cached refund list would still include the deleted refund.
+			if ( isset( self::$refunds_removed[ $order_id ] ) && function_exists( 'wc_delete_shop_order_transients' ) ) {
+				wc_delete_shop_order_transients( $order_id );
+			}
 			$order = self::resolve_order( $order_id );
 			if ( ! $order ) {
 				continue;

@@ -104,6 +104,22 @@ namespace {
 		return 'shop_order';
 	}
 
+	class WC_Order_Refund {
+
+		public function __construct( private int $parent_id ) {}
+
+		public function get_parent_id(): int {
+			return $this->parent_id;
+		}
+	}
+
+	$cleared = [];
+
+	function wc_delete_shop_order_transients( $id ): void {
+		global $cleared;
+		$cleared[] = (int) $id;
+	}
+
 	function wp_generate_uuid4(): string {
 		return bin2hex( random_bytes( 16 ) );
 	}
@@ -155,6 +171,15 @@ namespace {
 	OrderEvents::on_refund_deleted( 7, 10 );
 	$events = sent();
 	check( 1 === count( $events ) && 'order.refunded' === $events[0]['event_type'], 'Deleting a refund is sent.' );
+
+	$order->items = [ [ 'product_id' => '91', 'quantity' => 1, 'refunded' => 1 ] ];
+	check( null === OrderEvents::on_refund_deleting( null, new WC_Order_Refund( 10 ) ), 'Refund deletion is never blocked.' );
+	$events = sent();
+	check( 1 === count( $events ) && 'order.refunded' === $events[0]['event_type'], 'Deleting a refund in code is sent.' );
+	check( in_array( 10, $cleared, true ), 'The order is reread without the deleted refund.' );
+
+	OrderEvents::on_refund_deleting( false, new WC_Order_Refund( 10 ) );
+	check( [] === sent(), 'A refund deletion another plugin blocked is not sent.' );
 
 	$order->set_status( 'trash' );
 	OrderEvents::on_post_trashed( 10 );
