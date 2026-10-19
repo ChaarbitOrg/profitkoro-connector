@@ -88,6 +88,11 @@ class Transmitter {
 			Health::record_failure( new \WP_Error( ConnectionTest::REJECTED, __( 'ProfitKoro rejected this store key or signing secret.', 'profitkoro-connector' ) ) );
 		}
 
+		if ( 429 === $code ) {
+			self::on_failure( $payload, $attempt, $code, $message, self::retry_after( $response ) );
+			return;
+		}
+
 		// Stop retrying rejected requests; credentials or payload errors require merchant intervention.
 		if ( $code >= 400 && $code < 500 ) {
 			Logger::record( $payload['event_id'] ?? '', $payload['event_type'] ?? '', $code, 'permanent failure: ' . $message, $attempt, (int) ( $payload['merchant_order_id'] ?? 0 ) );
@@ -98,7 +103,7 @@ class Transmitter {
 		self::on_failure( $payload, $attempt, $code, $message );
 	}
 
-	private static function on_failure( array $payload, int $attempt, int $code, string $message ): void {
+	private static function on_failure( array $payload, int $attempt, int $code, string $message, int $retry_after = 0 ): void {
 		Health::record_failure( new \WP_Error( 'unreachable', 0 === $code ? $message : sprintf( 'HTTP %d', $code ) ) );
 		Logger::record( $payload['event_id'] ?? '', $payload['event_type'] ?? '', $code, $message, $attempt, (int) ( $payload['merchant_order_id'] ?? 0 ) );
 
@@ -107,7 +112,8 @@ class Transmitter {
 			return;
 		}
 
-		$delay = self::RETRY_DELAYS[ $attempt ];
+		// Waiting as long as the server asks, but never past the longest scheduled delay.
+		$delay = min( max( self::RETRY_DELAYS[ $attempt ], $retry_after ), max( self::RETRY_DELAYS ) );
 		if ( function_exists( 'as_schedule_single_action' ) ) {
 			as_schedule_single_action(
 				time() + $delay,
@@ -122,6 +128,18 @@ class Transmitter {
 	// The separator prevents ambiguous timestamp and body concatenations from sharing a signature.
 	public static function sign( string $timestamp, string $body, ?string $secret = null ): string {
 		return hash_hmac( 'sha256', $timestamp . '.' . $body, $secret ?? Settings::secret() );
+	}
+
+	private static function retry_after( $response ): int {
+		$value = trim( (string) wp_remote_retrieve_header( $response, 'retry-after' ) );
+		if ( '' === $value ) {
+			return 0;
+		}
+		if ( ctype_digit( $value ) ) {
+			return (int) $value;
+		}
+		$at = strtotime( $value );
+		return false === $at ? 0 : max( 0, $at - time() );
 	}
 
 	private static function mark_order_synced( array $payload, string $status ): void {
