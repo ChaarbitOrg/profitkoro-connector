@@ -165,6 +165,9 @@ namespace {
 	$item  = new WC_Order_Item_Product();
 	$order = new WC_Order( $item );
 
+	$occurred = PayloadBuilder::build( $order, 'order.created', 'e0' )['occurred_at'];
+	check( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+00:00$/', $occurred ), 'Event time carries microseconds in UTC.' );
+
 	$line = PayloadBuilder::build( $order, 'order.created', 'e1' )['items'][0];
 	check( '91' === $line['product_id'], 'A line reports its product.' );
 	check( 'https://shop.test/product/red-t-shirt/' === $line['permalink'], 'A line reports its product page.' );

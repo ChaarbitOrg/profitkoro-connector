@@ -28,7 +28,7 @@ class PayloadBuilder {
 			'connector'         => self::CONNECTOR_NAME . '/' . VERSION,
 			'event_id'          => $event_id,
 			'event_type'        => $event_type,
-			'occurred_at'       => self::now_iso(),
+			'occurred_at'       => self::event_time_iso(),
 			'placed_at'         => self::order_created_iso( $order ),
 
 			'merchant_order_id' => (string) $order->get_id(),
@@ -168,6 +168,11 @@ class PayloadBuilder {
 	// The API requires decimal strings to avoid JSON numeric precision loss and retain WooCommerce rounding.
 	private static function money( $value ): string {
 		return (string) wc_format_decimal( (float) $value, 2, false );
+	}
+
+	// Microseconds keep two changes made within the same second in the order they happened.
+	private static function event_time_iso(): string {
+		return ( new DateTimeImmutable( 'now', new DateTimeZone( 'UTC' ) ) )->format( 'Y-m-d\TH:i:s.uP' );
 	}
 
 	private static function now_iso(): string {
