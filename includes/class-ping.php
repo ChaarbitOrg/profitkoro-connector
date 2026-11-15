@@ -41,6 +41,23 @@ class Ping {
 	}
 
 	public static function handle( WP_REST_Request $request ): WP_REST_Response {
+		$refused = self::authenticate( $request );
+		if ( null !== $refused ) {
+			return $refused;
+		}
+
+		$data    = json_decode( (string) $request->get_body(), true );
+		$ping_id = is_array( $data ) && isset( $data['ping_id'] ) ? (string) $data['ping_id'] : '';
+		if ( '' === $ping_id ) {
+			return self::answer( 'bad_request', 'Ping carried no ID.', 400 );
+		}
+
+		// Reply inline because a queued callback could arrive after the platform records a timeout.
+		return self::send_reply( $ping_id );
+	}
+
+	// Returns the refusal to send back, or null when the platform signed the request.
+	public static function authenticate( WP_REST_Request $request ): ?WP_REST_Response {
 		if ( ! Settings::is_configured() ) {
 			return self::answer( 'not_configured', 'Store key or secret is not set in the plugin.' );
 		}
@@ -59,15 +76,7 @@ class Ping {
 		if ( ! hash_equals( Transmitter::sign( $timestamp, $body ), $signature ) ) {
 			return self::answer( 'bad_signature', 'Ping signature does not match this plugin\'s secret.', 401 );
 		}
-
-		$data    = json_decode( $body, true );
-		$ping_id = is_array( $data ) && isset( $data['ping_id'] ) ? (string) $data['ping_id'] : '';
-		if ( '' === $ping_id ) {
-			return self::answer( 'bad_request', 'Ping carried no ID.', 400 );
-		}
-
-		// Reply inline because a queued callback could arrive after the platform records a timeout.
-		return self::send_reply( $ping_id );
+		return null;
 	}
 
 	private static function send_reply( string $ping_id ): WP_REST_Response {

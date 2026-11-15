@@ -47,6 +47,7 @@ require_once PLUGIN_PATH . 'includes/class-click-capture.php';
 require_once PLUGIN_PATH . 'includes/class-payload-builder.php';
 require_once PLUGIN_PATH . 'includes/class-transmitter.php';
 require_once PLUGIN_PATH . 'includes/class-ping.php';
+require_once PLUGIN_PATH . 'includes/class-categories.php';
 require_once PLUGIN_PATH . 'includes/class-connection-test.php';
 require_once PLUGIN_PATH . 'includes/class-health.php';
 require_once PLUGIN_PATH . 'includes/class-k7r2.php';
@@ -77,6 +78,7 @@ add_action(
 		OrderEvents::init();
 		Transmitter::init();
 		Ping::init();
+		Categories::init();
 		Health::init();
 
 		if ( is_admin() ) {
