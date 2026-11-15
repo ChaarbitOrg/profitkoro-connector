@@ -10,6 +10,7 @@ use DateTimeZone;
 use WC_Order;
 use WC_Order_Item_Product;
 use WC_Product;
+use WP_Term;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -88,6 +89,8 @@ class PayloadBuilder {
 				'sku'           => $identity['sku'],
 				'name'          => $item->get_name(),
 				'permalink'     => $identity['permalink'],
+				// Absent for lines first reported by a version that did not send categories.
+				'categories'    => $identity['categories'] ?? null,
 
 				'requires_shipping' => $identity['requires_shipping'],
 
@@ -119,6 +122,7 @@ class PayloadBuilder {
 			'variation_id'      => $item->get_variation_id() ? (string) $item->get_variation_id() : null,
 			'sku'               => $product ? $product->get_sku() : null,
 			'permalink'         => self::product_permalink( $item ),
+			'categories'        => self::product_categories( (int) $item->get_product_id() ),
 			'requires_shipping' => self::line_requires_shipping( $product ),
 		];
 		if ( $product instanceof WC_Product ) {
@@ -136,6 +140,34 @@ class PayloadBuilder {
 		}
 		$permalink = get_permalink( $product_id );
 		return is_string( $permalink ) && '' !== $permalink ? $permalink : null;
+	}
+
+	// Parent categories are included so a campaign on a category also covers its subcategories.
+	private static function product_categories( int $product_id ): array {
+		if ( ! $product_id ) {
+			return [];
+		}
+		$term_ids = [];
+		foreach ( wc_get_product_term_ids( $product_id, 'product_cat' ) as $term_id ) {
+			$term_ids[ (int) $term_id ] = true;
+			foreach ( get_ancestors( (int) $term_id, 'product_cat', 'taxonomy' ) as $ancestor ) {
+				$term_ids[ (int) $ancestor ] = true;
+			}
+		}
+
+		$categories = [];
+		foreach ( array_keys( $term_ids ) as $term_id ) {
+			$term = get_term( $term_id, 'product_cat' );
+			if ( ! $term instanceof WP_Term ) {
+				continue;
+			}
+			$categories[] = [
+				'id'    => (string) $term_id,
+				'name'  => html_entity_decode( $term->name, ENT_QUOTES, 'UTF-8' ),
+				'depth' => count( get_ancestors( $term_id, 'product_cat', 'taxonomy' ) ) + 1,
+			];
+		}
+		return $categories;
 	}
 
 	private static function line_requires_shipping( $product ): bool {

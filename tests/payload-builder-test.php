@@ -150,6 +150,31 @@ namespace {
 		return $permalinks[ $id ] ?? false;
 	}
 
+	class WP_Term {
+
+		public function __construct( public string $name ) {}
+	}
+
+	// Phones (12) -> Android (34), and a top-level Sale (90).
+	$terms        = [ 12 => 'Phones', 34 => 'Android', 90 => 'Sale &amp; offers' ];
+	$parents      = [ 34 => [ 12 ] ];
+	$product_cats = [ 91 => [ 34, 90 ] ];
+
+	function wc_get_product_term_ids( $id, $taxonomy ) {
+		global $product_cats;
+		return $product_cats[ $id ] ?? [];
+	}
+
+	function get_ancestors( $id, $taxonomy, $type ) {
+		global $parents;
+		return $parents[ $id ] ?? [];
+	}
+
+	function get_term( $id, $taxonomy ) {
+		global $terms;
+		return isset( $terms[ $id ] ) ? new WP_Term( $terms[ $id ] ) : null;
+	}
+
 	function wc_format_decimal( $value, int $dp, bool $trim ): string {
 		return number_format( (float) $value, $dp, '.', '' );
 	}
@@ -171,6 +196,13 @@ namespace {
 	$line = PayloadBuilder::build( $order, 'order.created', 'e1' )['items'][0];
 	check( '91' === $line['product_id'], 'A line reports its product.' );
 	check( 'https://shop.test/product/red-t-shirt/' === $line['permalink'], 'A line reports its product page.' );
+	$categories = array_column( $line['categories'], 'depth', 'id' );
+	check( [ '34' => 2, '12' => 1, '90' => 1 ] === $categories, 'A line reports its categories with their parents and depths.' );
+	check( 'Sale & offers' === $line['categories'][2]['name'], 'Category names are sent as plain text.' );
+
+	$product_cats[91] = [ 90 ];
+	$line             = PayloadBuilder::build( $order, 'order.updated', 'e1b' )['items'][0];
+	check( 3 === count( $line['categories'] ), 'Moving the product to another category does not change an existing line.' );
 
 	$permalinks[91] = 'https://shop.test/product/renamed/';
 	$line           = PayloadBuilder::build( $order, 'order.updated', 'e2' )['items'][0];
@@ -182,6 +214,14 @@ namespace {
 	$line = PayloadBuilder::build( $order, 'order.updated', 'e3' )['items'][0];
 	check( '91' === $line['product_id'] && 'TSHIRT-RED' === $line['sku'], 'Deleting the product does not change an existing line.' );
 	check( 'https://shop.test/product/red-t-shirt/' === $line['permalink'], 'A deleted product keeps the page the line was bought from.' );
+
+	$older = new WC_Order_Item_Product();
+	$older->update_meta_data(
+		'_cpa_line_product',
+		[ 'product_id' => '91', 'variation_id' => null, 'sku' => 'X', 'permalink' => null, 'requires_shipping' => true ]
+	);
+	$line = PayloadBuilder::build( new WC_Order( $older ), 'order.updated', 'e4' )['items'][0];
+	check( null === $line['categories'], 'A line first reported without categories keeps sending none.' );
 
 	echo "Payload builder checks passed.\n";
 }
